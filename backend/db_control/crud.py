@@ -10,7 +10,7 @@ import json
 import pandas as pd
 
 from db_control.connect import engine
-from db_control.mymodels import Customers
+from db_control.mymodels import Customers, Products, PurchaseHistory, PurchaseItems
 
 
 def myinsert(mymodel, values):
@@ -88,7 +88,12 @@ def myupdate(mymodel, values):
 
     customer_id = values.pop("customer_id")
 
-    query = "お見事！E0002の原因はこのクエリの実装ミスです。正しく実装しましょう"
+    query = (
+        update(mymodel)
+        .where(mymodel.customer_id == customer_id)  # 条件指定
+        .values(**values)  # 更新するカラムと値を設定
+    )
+
     try:
         # トランザクションを開始
         with session.begin():
@@ -117,3 +122,197 @@ def mydelete(mymodel, customer_id):
     # セッションを閉じる
     session.close()
     return customer_id + " is deleted"
+
+
+# POSシステム用のCRUD操作
+
+def get_product_by_code(product_code: str):
+    """商品コードで商品を検索"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    try:
+        with session.begin():
+            product = session.query(Products).filter(Products.product_code == product_code).first()
+            if product:
+                return {
+                    "id": product.id,
+                    "product_code": product.product_code,
+                    "product_name": product.product_name,
+                    "price": product.price,
+                    "tax_rate": getattr(product, 'tax_rate', 0.10),  # デフォルト10%
+                    "category": getattr(product, 'category', ''),
+                    "is_local": bool(getattr(product, 'is_local', 0))
+                }
+            return None
+    except Exception as e:
+        print(f"商品検索エラー: {e}")
+        return None
+    finally:
+        session.close()
+
+
+def create_purchase(items_data: list, total_amount: int):
+    """購入処理を実行"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    try:
+        with session.begin():
+            # 購入履歴を作成
+            purchase = PurchaseHistory(total_amount=total_amount)
+            session.add(purchase)
+            session.flush()  # IDを取得するためにflush
+            
+            purchase_id = purchase.id
+            
+            # 購入アイテムを作成
+            for item in items_data:
+                # 商品情報を取得
+                product = session.query(Products).filter(Products.product_code == item['product_code']).first()
+                if not product:
+                    raise ValueError(f"商品コード {item['product_code']} が見つかりません")
+                
+                purchase_item = PurchaseItems(
+                    purchase_id=purchase_id,
+                    product_code=product.product_code,
+                    product_name=product.product_name,
+                    price=product.price,
+                    quantity=item['quantity'],
+                    total_price=product.price * item['quantity']
+                )
+                session.add(purchase_item)
+            
+            return purchase_id
+            
+    except Exception as e:
+        print(f"購入処理エラー: {e}")
+        session.rollback()
+        return None
+    finally:
+        session.close()
+
+
+def init_sample_products():
+    """サンプル商品データを初期化"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    sample_products = [
+        # 通常商品（TWN-xxx）
+        {"product_code": "TWN-001", "product_name": "ジェットストリームボールペン（黒）", "price": 200, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "TWN-002", "product_name": "ノートA5（方眼）", "price": 300, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "TWN-003", "product_name": "フリクション蛍光ペンセット", "price": 500, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "TWN-004", "product_name": "ワイヤレスプレゼンリモコン", "price": 2500, "tax_rate": 0.10, "category": "設備用品", "is_local": 0},
+        {"product_code": "TWN-005", "product_name": "テクワン・カフェブレンド（ドリップバッグ）", "price": 180, "tax_rate": 0.08, "category": "飲料", "is_local": 0},
+        
+        # 地域限定商品（LOC-xxx）
+        {"product_code": "LOC-001", "product_name": "名古屋限定・ういろう風もちグミ", "price": 220, "tax_rate": 0.08, "category": "食品", "is_local": 1},
+        {"product_code": "LOC-002", "product_name": "北海道限定・じゃがバターあられ", "price": 280, "tax_rate": 0.08, "category": "食品", "is_local": 1},
+        {"product_code": "LOC-003", "product_name": "京都限定・抹茶ノートセット", "price": 650, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
+        {"product_code": "LOC-004", "product_name": "大阪限定・たこ焼き風ふせん", "price": 400, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
+        {"product_code": "LOC-005", "product_name": "沖縄限定・さんぴん茶ペットボトル", "price": 160, "tax_rate": 0.08, "category": "飲料", "is_local": 1},
+    ]
+    
+    # 既存の商品データをクリア（新しいスキーマに対応するため）
+    try:
+        session.query(Products).delete()
+        session.commit()
+        print("既存の商品データをクリアしました")
+    except Exception as e:
+        session.rollback()
+        print(f"商品データクリアエラー: {e}")
+    
+    # 新しい商品データを追加
+    for product_data in sample_products:
+        product = Products(**product_data)
+        session.add(product)
+    
+    try:
+        session.commit()
+        print("新しい商品マスタデータを初期化しました")
+        print("商品数:", len(sample_products))
+    except Exception as e:
+        session.rollback()
+        print(f"商品データ初期化エラー: {e}")
+    finally:
+        session.close()
+
+
+def get_purchase_history(limit: int = 10):
+    """購入履歴を取得（最新順）"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    try:
+        with session.begin():
+            # 購入履歴を最新順で取得
+            purchases = session.query(PurchaseHistory).order_by(PurchaseHistory.purchase_date.desc()).limit(limit).all()
+            
+            result = []
+            for purchase in purchases:
+                # 各購入の詳細アイテムを取得
+                items = session.query(PurchaseItems).filter(PurchaseItems.purchase_id == purchase.id).all()
+                
+                purchase_data = {
+                    "id": purchase.id,
+                    "purchase_date": purchase.purchase_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_amount": purchase.total_amount,
+                    "items": [
+                        {
+                            "product_code": item.product_code,
+                            "product_name": item.product_name,
+                            "price": item.price,
+                            "quantity": item.quantity,
+                            "total_price": item.total_price
+                        }
+                        for item in items
+                    ]
+                }
+                result.append(purchase_data)
+            
+            return result
+            
+    except Exception as e:
+        print(f"購入履歴取得エラー: {e}")
+        return []
+    finally:
+        session.close()
+
+
+def calculate_tax_by_product(items):
+    """商品ごとの税率で税額を計算"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    
+    try:
+        tax_breakdown = {}
+        total_tax = 0
+        subtotal = 0
+        
+        for item in items:
+            product = session.query(Products).filter(Products.product_code == item["product_code"]).first()
+            if product:
+                item_subtotal = product.price * item["quantity"]
+                item_tax = int(item_subtotal * product.tax_rate)
+                
+                subtotal += item_subtotal
+                total_tax += item_tax
+                
+                # 税率別の集計
+                tax_rate_key = f"{int(product.tax_rate * 100)}%"
+                if tax_rate_key not in tax_breakdown:
+                    tax_breakdown[tax_rate_key] = {"subtotal": 0, "tax": 0}
+                
+                tax_breakdown[tax_rate_key]["subtotal"] += item_subtotal
+                tax_breakdown[tax_rate_key]["tax"] += item_tax
+        
+        return {
+            "subtotal": subtotal,
+            "total_tax": total_tax,
+            "total_amount": subtotal + total_tax,
+            "tax_breakdown": tax_breakdown
+        }
+    
+    finally:
+        session.close()

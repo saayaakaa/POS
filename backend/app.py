@@ -4,12 +4,16 @@ from pydantic import BaseModel
 import requests
 import json
 from db_control import crud, mymodels
+from db_control.schema import ProductResponse, PurchaseCompleteRequest, PurchaseCompleteResponse
 
 # MySQLのテーブル作成
-# from db_control.create_tables import init_db
+from db_control.create_tables import init_db
 
-# # アプリケーション初期化時にテーブルを作成
-# init_db()
+# アプリケーション初期化時にテーブルを作成
+init_db()
+
+# サンプル商品データを初期化
+crud.init_sample_products()
 
 
 class Customer(BaseModel):
@@ -19,7 +23,7 @@ class Customer(BaseModel):
     gender: str
 
 
-app = FastAPI()
+app = FastAPI(title="POSシステムAPI", version="1.0.0")
 
 # CORSミドルウェアの設定
 app.add_middleware(
@@ -33,8 +37,66 @@ app.add_middleware(
 
 @app.get("/")
 def index():
-    return {"message": "FastAPI top page!"}
+    return {"message": "POSシステム FastAPI!"}
 
+
+# POSシステム用のAPIエンドポイント
+
+@app.get("/products/{product_code}", response_model=ProductResponse)
+def get_product(product_code: str):
+    """商品コードで商品を検索"""
+    product = crud.get_product_by_code(product_code)
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    return product
+
+
+@app.post("/purchase", response_model=PurchaseCompleteResponse)
+def create_purchase(request: PurchaseCompleteRequest):
+    """購入処理を実行"""
+    try:
+        # 商品ごとの税率で計算
+        tax_calculation = crud.calculate_tax_by_product(
+            [{"product_code": item.product_code, "quantity": item.quantity} for item in request.items]
+        )
+        
+        # 購入処理を実行
+        purchase_id = crud.create_purchase(
+            [{"product_code": item.product_code, "quantity": item.quantity} for item in request.items],
+            tax_calculation["total_amount"]
+        )
+        
+        if purchase_id:
+            return PurchaseCompleteResponse(
+                success=True,
+                total_amount=tax_calculation["total_amount"],
+                purchase_id=str(purchase_id),
+                message="購入が完了しました",
+                subtotal=tax_calculation["subtotal"],
+                total_tax=tax_calculation["total_tax"],
+                tax_breakdown=tax_calculation["tax_breakdown"]
+            )
+        else:
+            raise HTTPException(status_code=500, detail="購入処理に失敗しました")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"購入処理エラー: {e}")
+        raise HTTPException(status_code=500, detail="内部サーバーエラーが発生しました")
+
+
+@app.get("/purchase-history")
+def get_purchase_history(limit: int = Query(10, description="取得する履歴の件数")):
+    """購入履歴を取得"""
+    try:
+        history = crud.get_purchase_history(limit)
+        return {"success": True, "data": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="購入履歴の取得に失敗しました")
+
+
+# 既存のCustomer関連API（互換性のため残す）
 
 @app.post("/customers")
 def create_customer(customer: Customer):
@@ -91,3 +153,8 @@ def delete_customer(customer_id: str = Query(...)):
 def fetchtest():
     response = requests.get('https://jsonplaceholder.typicode.com/users')
     return response.json()
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

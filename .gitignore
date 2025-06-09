@@ -6,20 +6,57 @@ out/
 .env.*
 package-lock.json
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # --- TypeScript関連 ---
 *.tsbuildinfo
+.tsbuildinfo
 
 # --- Python関連（FastAPI） ---
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
 *.db
 *.sqlite3
 *.log
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- 環境変数ファイル ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
 
 # --- VSCode & OS関連 ---
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 .vscode/
+*.swp
+*.swo
 
 # --- MySQL Docker用など ---
 mysql/data/
@@ -31,6 +68,7 @@ frontend/certs/
 *.key
 *.crt
 *.csr
+*.pem
 
 # --- 大容量ファイル・ドキュメント ---
 *.pdf
@@ -47,13 +85,19 @@ logs/
 *.backup
 *.swp
 *.swo
+*~
 
 # --- IDE設定 ---
 .idea/
 *.iml
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# --- 環境固有ファイル ---
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# --- キャッシュファイル ---
+.cache/
+.parcel-cache/
+.eslintcache

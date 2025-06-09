@@ -17,7 +17,7 @@
 
 
 #MySQl
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
 
@@ -43,23 +43,19 @@ try:
          all([var.strip() for var in [DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]]) and 
          not any(['your-' in str(var) for var in [DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]]))):
         
-        # Azure Database for MySQL用のSSL設定
-        ssl_args = {}
+        # Azure Database for MySQL用のSSL設定（PyMySQL最新版対応）
+        connect_args = {
+            'charset': 'utf8mb4'
+        }
+        
         if 'azure.com' in DB_HOST or DB_SSL_MODE == 'REQUIRED':
-            ssl_args = {
-                'ssl_disabled': False,
-                'ssl_check_hostname': False,
-                'ssl_verify_cert': False
+            # Azure Database for MySQL用のSSL設定（簡素化）
+            connect_args['ssl'] = {
+                'ssl_disabled': False
             }
             print("Azure Database for MySQL用SSL設定を適用")
         
         DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-        
-        # Azure Database for MySQL用の接続パラメータ
-        connect_args = {
-            'charset': 'utf8mb4',
-            **ssl_args
-        }
         
         engine = create_engine(
             DATABASE_URL,
@@ -74,7 +70,7 @@ try:
         
         # 接続テスト
         with engine.connect() as conn:
-            result = conn.execute("SELECT 1")
+            result = conn.execute(text("SELECT 1"))
             print("MySQL接続テスト成功")
     else:
         raise ValueError("MySQL環境変数が設定されていないか無効です")

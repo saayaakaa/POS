@@ -24,15 +24,30 @@ interface PurchaseHistoryItem {
   }[];
 }
 
+interface LastPurchase {
+  totalAmount: number;
+  purchaseId: string;
+}
+
 const Cart: NextPage = () => {
   const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [lastPurchase, setLastPurchase] = useState<{totalAmount: number, purchaseId: string} | null>(null);
+  const [lastPurchase, setLastPurchase] = useState<LastPurchase | null>(null);
+
+  // APIベースURLを動的に取得
+  const getApiBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      return `http://${hostname}:8000`;
+    }
+    return 'http://localhost:8000';
+  };
 
   useEffect(() => {
+    // URLパラメータからカート商品を取得
     if (router.query.items) {
       try {
         const items = JSON.parse(router.query.items as string);
@@ -41,13 +56,12 @@ const Cart: NextPage = () => {
         console.error('カートデータの解析に失敗しました:', error);
       }
     }
-    // 購入履歴を取得
     fetchPurchaseHistory();
   }, [router.query.items]);
 
   const fetchPurchaseHistory = async () => {
     try {
-      const response = await fetch('http://localhost:8000/purchase-history?limit=5');
+      const response = await fetch(`${getApiBaseUrl()}/purchase-history?limit=5`);
       if (response.ok) {
         const result = await response.json();
         setPurchaseHistory(result.data);
@@ -83,7 +97,7 @@ const Cart: NextPage = () => {
         }))
       };
 
-      const response = await fetch('http://localhost:8000/purchase', {
+      const response = await fetch(`${getApiBaseUrl()}/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

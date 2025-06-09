@@ -61,13 +61,34 @@ export default function ProductSearchPage() {
 
   const fetchPurchaseHistory = async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/purchase-history?limit=5`)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+      
+      const response = await fetch(`${getApiBaseUrl()}/purchase-history?limit=5`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId);
+      
       if (response.ok) {
         const result = await response.json()
         setPurchaseHistory(result.data)
+      } else {
+        console.error(`購入履歴取得エラー: HTTP ${response.status} - ${response.statusText}`)
       }
-    } catch (error) {
-      console.error('購入履歴の取得に失敗しました:', error)
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('購入履歴取得タイムアウト')
+      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        console.error('購入履歴取得: ネットワークエラー')
+      } else {
+        console.error('購入履歴の取得に失敗しました:', error)
+      }
     }
   }
 
@@ -95,19 +116,41 @@ export default function ProductSearchPage() {
     if (!code) return
 
     try {
-      const res = await fetch(`${getApiBaseUrl()}/products/${code}`)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒タイムアウト
+      
+      const res = await fetch(`${getApiBaseUrl()}/products/${code}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId);
+      
       if (res.ok) {
         const data = await res.json()
         setProduct(data)
         setSearchError("")
-      } else {
+      } else if (res.status === 404) {
         setProduct(null)
         setSearchError("商品が見つかりません")
+      } else {
+        setProduct(null)
+        setSearchError(`サーバーエラー: HTTP ${res.status} - ${res.statusText}`)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("検索失敗:", err)
       setProduct(null)
-      setSearchError("サーバーとの通信に失敗しました")
+      if (err.name === 'AbortError') {
+        setSearchError("タイムアウト: サーバーの応答が遅すぎます")
+      } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+        setSearchError("ネットワークエラー: サーバーに接続できません")
+      } else {
+        setSearchError(`通信エラー: ${err.name} - ${err.message}`)
+      }
     }
   }
 
@@ -156,13 +199,20 @@ export default function ProductSearchPage() {
         }))
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒タイムアウト
+
       const res = await fetch(`${getApiBaseUrl()}/purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify(purchaseData)
+        body: JSON.stringify(purchaseData),
+        signal: controller.signal
       })
+
+      clearTimeout(timeoutId);
 
       if (res.ok) {
         const result = await res.json()
@@ -181,11 +231,18 @@ export default function ProductSearchPage() {
         await fetchPurchaseHistory()
         
       } else {
-        alert("購入処理に失敗しました")
+        const errorText = await res.text().catch(() => 'レスポンス読み取りエラー');
+        alert(`購入処理に失敗しました: HTTP ${res.status} - ${errorText}`)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("購入失敗:", err)
-      alert("サーバーとの通信に失敗しました")
+      if (err.name === 'AbortError') {
+        alert("タイムアウト: サーバーの応答が遅すぎます")
+      } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+        alert("ネットワークエラー: サーバーに接続できません")
+      } else {
+        alert(`通信エラー: ${err.name} - ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -273,6 +330,7 @@ export default function ProductSearchPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="text-xm font-semibold mb-4 text-gray-700">商品コード入力・スキャン</h2>
+              
               <ProductInput
                 code={code}
                 onCodeChange={(newCode: string) => setCode(newCode)}

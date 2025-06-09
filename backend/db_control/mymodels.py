@@ -79,12 +79,15 @@ class Products(Base):
     __tablename__ = "products"
     
     id = Column(Integer, primary_key=True, index=True)
-    product_code = Column(String(50), unique=True, index=True, nullable=False)
+    # JANコード形式13桁数字に最適化（バーコードスキャン対応）
+    product_code = Column(String(13), unique=True, index=True, nullable=False)
     product_name = Column(String(100), nullable=False)
     price = Column(Integer, nullable=False)  # 税抜き価格
     tax_rate = Column(Float, nullable=False, default=0.10)  # 消費税率（デフォルト10%）
     category = Column(String(50), nullable=True)  # 商品カテゴリ
     is_local = Column(Integer, nullable=False, default=0)  # 地域商品フラグ（0: 通常商品, 1: 地域商品）
+    # 将来的にbarcodeカラムを追加予定（レベル2実装時）
+    # barcode = Column(String(20), nullable=True, index=True)  # JANコード等のバーコード値
 
 
 class PurchaseHistory(Base):
@@ -98,7 +101,7 @@ class PurchaseItems(Base):
     __tablename__ = 'purchase_items'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     purchase_id: Mapped[int] = mapped_column(Integer, ForeignKey("purchase_history.id"), nullable=False)
-    product_code: Mapped[str] = mapped_column(String(20), ForeignKey("products.product_code"), nullable=False)
+    product_code: Mapped[str] = mapped_column(String(13), ForeignKey("products.product_code"), nullable=False)
     product_name: Mapped[str] = mapped_column(String(100), nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)

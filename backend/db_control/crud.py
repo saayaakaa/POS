@@ -194,24 +194,29 @@ def create_purchase(items_data: list, total_amount: int):
 
 
 def init_sample_products():
-    """サンプル商品データを初期化"""
+    """サンプル商品データを初期化（JANコード形式13桁）"""
     Session = sessionmaker(bind=engine)
     session = Session()
     
     sample_products = [
-        # 通常商品（TWN-xxx）
-        {"product_code": "TWN-001", "product_name": "ジェットストリームボールペン（黒）", "price": 200, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
-        {"product_code": "TWN-002", "product_name": "ノートA5（方眼）", "price": 300, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
-        {"product_code": "TWN-003", "product_name": "フリクション蛍光ペンセット", "price": 500, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
-        {"product_code": "TWN-004", "product_name": "ワイヤレスプレゼンリモコン", "price": 2500, "tax_rate": 0.10, "category": "設備用品", "is_local": 0},
-        {"product_code": "TWN-005", "product_name": "テクワン・カフェブレンド（ドリップバッグ）", "price": 180, "tax_rate": 0.08, "category": "飲料", "is_local": 0},
+        # 文房具（49012345670XX）- 標準JANコード形式
+        {"product_code": "4901234567001", "product_name": "シャープペンシル（0.5mm）", "price": 150, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567002", "product_name": "消しゴム（スリムタイプ）", "price": 120, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567003", "product_name": "ノートB5（横罫）", "price": 250, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567004", "product_name": "ボールペン（赤）", "price": 180, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567005", "product_name": "蛍光ペンセット（5色）", "price": 480, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567006", "product_name": "付箋セット（正方形・パステル）", "price": 320, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567007", "product_name": "ペンケース（メッシュタイプ）", "price": 650, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
+        {"product_code": "4901234567008", "product_name": "A4クリアファイル（10枚セット）", "price": 380, "tax_rate": 0.10, "category": "文房具", "is_local": 0},
         
-        # 地域限定商品（LOC-xxx）
-        {"product_code": "LOC-001", "product_name": "名古屋限定・ういろう風もちグミ", "price": 220, "tax_rate": 0.08, "category": "食品", "is_local": 1},
-        {"product_code": "LOC-002", "product_name": "北海道限定・じゃがバターあられ", "price": 280, "tax_rate": 0.08, "category": "食品", "is_local": 1},
-        {"product_code": "LOC-003", "product_name": "京都限定・抹茶ノートセット", "price": 650, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
-        {"product_code": "LOC-004", "product_name": "大阪限定・たこ焼き風ふせん", "price": 400, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
-        {"product_code": "LOC-005", "product_name": "沖縄限定・さんぴん茶ペットボトル", "price": 160, "tax_rate": 0.08, "category": "飲料", "is_local": 1},
+        # 地域限定商品（49012345671XX）- 地域商品識別
+        {"product_code": "4901234567101", "product_name": "名古屋限定・しゃちほこ消しゴム", "price": 200, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
+        {"product_code": "4901234567102", "product_name": "大阪限定・たこ焼きメモ帳", "price": 350, "tax_rate": 0.10, "category": "文房具", "is_local": 1},
+        
+        # テスト用商品（99000000000XX）- テスト識別コード
+        {"product_code": "9900000000001", "product_name": "テスト商品A", "price": 100, "tax_rate": 0.10, "category": "テスト", "is_local": 0},
+        {"product_code": "9900000000002", "product_name": "テスト商品B", "price": 150, "tax_rate": 0.08, "category": "テスト", "is_local": 0},
+        {"product_code": "9900000000003", "product_name": "テスト商品C", "price": 200, "tax_rate": 0.10, "category": "テスト", "is_local": 0},
     ]
     
     # 既存の商品データをクリア（新しいスキーマに対応するため）
@@ -230,7 +235,7 @@ def init_sample_products():
     
     try:
         session.commit()
-        print("新しい商品マスタデータを初期化しました")
+        print("JANコード形式13桁の商品マスタデータを初期化しました")
         print("商品数:", len(sample_products))
     except Exception as e:
         session.rollback()

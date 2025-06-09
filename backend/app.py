@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 import json
+import os
 from db_control import crud, mymodels
 from db_control.schema import ProductResponse, PurchaseCompleteRequest, PurchaseCompleteResponse
 
@@ -10,10 +11,16 @@ from db_control.schema import ProductResponse, PurchaseCompleteRequest, Purchase
 from db_control.create_tables import init_db
 
 # アプリケーション初期化時にテーブルを作成
+print("データベース初期化中...")
 init_db()
 
-# サンプル商品データを初期化
-crud.init_sample_products()
+# サンプル商品データを初期化（JANコード形式13桁対応）
+print("商品マスタデータ初期化中...")
+try:
+    crud.init_sample_products()
+    print("商品マスタデータ初期化完了")
+except Exception as e:
+    print(f"商品マスタデータ初期化エラー: {e}")
 
 
 class Customer(BaseModel):
@@ -23,12 +30,18 @@ class Customer(BaseModel):
     gender: str
 
 
-app = FastAPI(title="POSシステムAPI", version="1.0.0")
+app = FastAPI(title="POSシステムAPI（JANコード形式13桁対応）", version="1.0.0")
 
-# CORSミドルウェアの設定
+# CORS設定（本番環境対応）
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+if allowed_origins == ["*"]:
+    print("⚠️  警告: CORS設定が全てのオリジンを許可しています（開発環境用）")
+else:
+    print(f"CORS許可オリジン: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,14 +50,22 @@ app.add_middleware(
 
 @app.get("/")
 def index():
-    return {"message": "POSシステム FastAPI!"}
+    return {"message": "POSシステム FastAPI（JANコード形式13桁対応）!"}
 
 
 # POSシステム用のAPIエンドポイント
 
 @app.get("/products/{product_code}", response_model=ProductResponse)
 def get_product(product_code: str):
-    """商品コードで商品を検索"""
+    """
+    商品コードで商品を検索（JANコード形式13桁対応）
+    
+    レベル1: 手入力による商品コード検索
+    レベル2: バーコードスキャンによる商品検索にも対応予定
+    - JANコード13桁数字（例：4901234567001）
+    - 完全一致検索（バーコードは誤入力が少ないため）
+    - 13桁数字のみ受け入れ（フロントエンドでバリデーション済み）
+    """
     product = crud.get_product_by_code(product_code)
     if not product:
         raise HTTPException(status_code=404, detail="商品が見つかりません")

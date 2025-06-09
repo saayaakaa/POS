@@ -1,6 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import ProductInput from '../components/ProductInput'
+
+interface Product {
+  id: number;
+  product_code: string;
+  product_name: string;
+  price: number;
+  tax_rate?: number;
+  category?: string;
+  is_local?: boolean;
+}
 
 interface PurchaseHistoryItem {
   id: number;
@@ -24,7 +35,7 @@ interface TaxBreakdown {
 
 export default function ProductSearchPage() {
   const [code, setCode] = useState("")
-  const [product, setProduct] = useState<any | null>(null)
+  const [product, setProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<any[]>([])
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([])
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -32,6 +43,7 @@ export default function ProductSearchPage() {
   const [loading, setLoading] = useState(false)
   const [showPurchaseHistory, setShowPurchaseHistory] = useState(false)
   const [showTaxDetails, setShowTaxDetails] = useState(false)
+  const [searchError, setSearchError] = useState("")
 
   // APIベースURLを動的に取得
   const getApiBaseUrl = () => {
@@ -66,6 +78,19 @@ export default function ProductSearchPage() {
     }
   }
 
+  // バーコードスキャナーからの商品検索成功時の処理
+  const handleProductFound = (foundProduct: Product) => {
+    setProduct(foundProduct)
+    setCode(foundProduct.product_code)
+    setSearchError("")
+  }
+
+  // バーコードスキャナーからのエラー処理
+  const handleSearchError = (error: string) => {
+    setSearchError(error)
+    setProduct(null)
+  }
+
   const handleSearch = async () => {
     if (!code) return
 
@@ -74,14 +99,15 @@ export default function ProductSearchPage() {
       if (res.ok) {
         const data = await res.json()
         setProduct(data)
+        setSearchError("")
       } else {
         setProduct(null)
-        alert("商品が見つかりません")
+        setSearchError("商品が見つかりません")
       }
     } catch (err) {
       console.error("検索失敗:", err)
       setProduct(null)
-      alert("サーバーとの通信に失敗しました")
+      setSearchError("サーバーとの通信に失敗しました")
     }
   }
 
@@ -175,8 +201,9 @@ export default function ProductSearchPage() {
     
     cart.forEach(item => {
       const itemSubtotal = item.price * item.quantity
-      const itemTax = Math.floor(itemSubtotal * (item.tax_rate || 0.10))
-      const taxRateKey = `${((item.tax_rate || 0.10) * 100).toFixed(0)}%`
+      const taxRate = item.tax_rate || 0.10 // デフォルト10%
+      const itemTax = Math.floor(itemSubtotal * taxRate)
+      const taxRateKey = `${(taxRate * 100).toFixed(0)}%`
       
       if (!taxBreakdown[taxRateKey]) {
         taxBreakdown[taxRateKey] = { subtotal: 0, tax: 0 }
@@ -246,53 +273,43 @@ export default function ProductSearchPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="text-xm font-semibold mb-4 text-gray-700">商品コード入力・スキャン</h2>
-              <input
-                type="text"
-                placeholder="1234567890"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              <ProductInput
+                code={code}
+                onCodeChange={(newCode: string) => setCode(newCode)}
+                onProductFound={handleProductFound}
+                onSearchError={handleSearchError}
                 className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 mb-4"
               />
-              <button
-                onClick={handleSearch}
-                className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-400 to-pink-400 hover:opacity-90 transition"
-              >
-                🔍 商品を検索
-              </button>
+              {searchError && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{searchError}</p>
+                </div>
+              )}
             </div>
 
             {product && (
               <div className="bg-white rounded-2xl shadow-md p-6 text-center">
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">{product.product_name}</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">{product.product_name}</h3>
                 <div className="flex justify-center items-center space-x-2 mb-2">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                    {product.category}
-                  </span>
                   {product.is_local && (
                     <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
                       地域限定
                     </span>
                   )}
                 </div>
-                <p className="text-3xl font-bold text-orange-500 mb-2">¥{product.price.toLocaleString()}</p>
-                <p className="text-sm text-gray-600 mb-4">
-                  税率: {(product.tax_rate * 100).toFixed(0)}% 
-                  {product.tax_rate === 0.08 && " (軽減税率)"}
-                  {product.tax_rate === 0.00 && " (非課税)"}
-                </p>
+                <p className="text-2xl font-bold text-orange-500 mb-4">¥{product.price.toLocaleString()}</p>
                 <button
                   onClick={addToCart}
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-400 to-pink-400 hover:opacity-90 transition"
                 >
-                  ➕ カートに追加
+                  カートに追加
                 </button>
               </div>
             )}
 
             {/* 合計カード */}
             <div className="bg-white rounded-2xl shadow-md p-6 text-center">
-              <h3 className="text-lg font-semibold text-gray-700 mb-3">💰 合計金額</h3>
+              <h3 className="text-lg font-semibold text-gray-700 mb-3">合計金額</h3>
               {cart.length > 0 ? (
                 <div className="text-2xl font-bold text-pink-500">
                   ¥{(totalAmount + totalTax).toLocaleString()}
@@ -307,7 +324,7 @@ export default function ProductSearchPage() {
 
           {/* 右側：カート表示エリア */}
           <div className="bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-xm font-semibold mb-4 text-gray-700">🛒 カート</h2>
+            <h2 className="text-xm font-semibold mb-4 text-gray-700">カート</h2>
             
             <div className="space-y-2 mb-6">
               {cart.length === 0 ? (
@@ -345,7 +362,7 @@ export default function ProductSearchPage() {
                         <div>
                           <span className="text-gray-600">単価:</span>
                           <div className="font-medium">¥{item.price.toLocaleString()}</div>
-                          <div className="text-xs text-gray-500">税率{(item.tax_rate * 100).toFixed(0)}%</div>
+                          <div className="text-xs text-gray-500">税率{((item.tax_rate || 0.10) * 100).toFixed(0)}%</div>
                         </div>
                       </div>
                       
@@ -416,7 +433,7 @@ export default function ProductSearchPage() {
                 disabled:bg-gray-300 disabled:cursor-not-allowed
                 bg-gradient-to-r from-gray-600 to-gray-800 hover:opacity-90"
             >
-              {loading ? '⏳ 処理中...' : '💳 購入する'}
+              {loading ? '処理中...' : '購入する'}
             </button>
 
             {/* 購入履歴表示ボタン */}
@@ -424,7 +441,7 @@ export default function ProductSearchPage() {
               onClick={togglePurchaseHistory}
               className="w-full mt-3 py-3 text-lg font-semibold text-gray-700 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-blue-200 transition"
             >
-              {showPurchaseHistory ? '📋 購入履歴を非表示' : '📋 購入履歴を表示'}
+              {showPurchaseHistory ? '購入履歴を非表示' : '購入履歴を表示'}
             </button>
           </div>
         </div>
@@ -432,7 +449,7 @@ export default function ProductSearchPage() {
         {/* 購入履歴 */}
         {showPurchaseHistory && (
           <div className="mt-8 bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">📋 購入履歴</h2>
+            <h2 className="text-xl font-semibold text-gray-800 mb-6">購入履歴</h2>
             {purchaseHistory.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
                 購入履歴がありません

@@ -1,0 +1,59 @@
+# --- Node関連（Next.js） ---
+node_modules/
+.next/
+out/
+.env
+.env.*
+package-lock.json
+npm-debug.log*
+
+# --- TypeScript関連 ---
+*.tsbuildinfo
+
+# --- Python関連（FastAPI） ---
+__pycache__/
+*.py[cod]
+*.db
+*.sqlite3
+*.log
+
+# --- VSCode & OS関連 ---
+.DS_Store
+.vscode/
+
+# --- MySQL Docker用など ---
+mysql/data/
+*.pid
+*.sock
+
+# --- 開発用証明書（HTTPS） ---
+frontend/certs/
+*.key
+*.crt
+*.csr
+
+# --- 大容量ファイル・ドキュメント ---
+*.pdf
+*.zip
+*.tar.gz
+*.rar
+
+# --- ログファイル ---
+*.log
+logs/
+
+# --- 一時ファイル ---
+*.tmp
+*.backup
+*.swp
+*.swo
+
+# --- IDE設定 ---
+.idea/
+*.iml
+
+# --- 環境固有ファイル ---
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

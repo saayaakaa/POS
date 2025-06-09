@@ -30,6 +30,7 @@ DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 DB_NAME = os.getenv('DB_NAME')
+DB_SSL_MODE = os.getenv('DB_SSL_MODE', 'PREFERRED')
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
 print(f"環境: {ENVIRONMENT}")
@@ -42,14 +43,32 @@ try:
          all([var.strip() for var in [DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]]) and 
          not any(['your-' in str(var) for var in [DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]]))):
         
+        # Azure Database for MySQL用のSSL設定
+        ssl_args = {}
+        if 'azure.com' in DB_HOST or DB_SSL_MODE == 'REQUIRED':
+            ssl_args = {
+                'ssl_disabled': False,
+                'ssl_check_hostname': False,
+                'ssl_verify_cert': False
+            }
+            print("Azure Database for MySQL用SSL設定を適用")
+        
         DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        
+        # Azure Database for MySQL用の接続パラメータ
+        connect_args = {
+            'charset': 'utf8mb4',
+            **ssl_args
+        }
+        
         engine = create_engine(
             DATABASE_URL,
             echo=False,  # 本番環境ではログを抑制
             pool_pre_ping=True,
             pool_recycle=3600,
             pool_size=10,
-            max_overflow=20
+            max_overflow=20,
+            connect_args=connect_args
         )
         print(f"MySQL接続を使用します: {DB_HOST}")
         

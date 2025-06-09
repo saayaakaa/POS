@@ -37,8 +37,14 @@ const ProductInput: React.FC<ProductInputProps> = ({
   const productCode = externalCode !== undefined ? externalCode : internalCode;
   const setProductCode = onCodeChange || setInternalCode;
 
-  // APIベースURLを動的に取得
+  // APIベースURLを環境変数から取得（フォールバック付き）
   const getApiBaseUrl = () => {
+    // 環境変数が設定されている場合はそれを使用
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
+    
+    // フォールバック: 動的にホスト名から構築（開発環境用）
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
       return `http://${hostname}:8000`;
